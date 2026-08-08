@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001'
+const WS_URL = process.env.WS_URL || process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001'
 
 export async function GET(request: NextRequest) {
   const roomId = request.nextUrl.searchParams.get('roomId') || ''
