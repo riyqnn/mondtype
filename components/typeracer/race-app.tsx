@@ -39,7 +39,7 @@ function mapServerPlayerToUi(
 ): Player {
   const isBot = addr.startsWith('bot:')
   const botNum = isBot ? parseInt(addr.split(':')[1]) : 0
-  const BOT_NAMES = ['Bot Alpha', 'Bot Beta', 'Bot Gamma']
+  const BOT_NAMES = ['0xB07A...A1fa', '0xB07B...B3tA', '0xB07G...G4mM']
   return {
     id: isSelf ? SELF_ID : addr.toLowerCase(),
     name: isSelf ? name : isBot ? BOT_NAMES[botNum - 1] ?? `Bot ${botNum}` : `${addr.slice(0, 6)}...${addr.slice(-4)}`,

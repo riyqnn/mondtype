@@ -128,7 +128,7 @@ function checkAutoStart(io: Server, roomId: number): void {
   }
 }
 
-const BOT_NAMES = ['Zidan', 'rizky', 'Budiono']
+const BOT_NAMES = ['0xB07A...A1fa', '0xB07B...B3tA', '0xB07G...G4mM']
 
 function startBotSimulation(io: Server, roomId: number): void {
   const room = roomManager.getRoom(roomId)
