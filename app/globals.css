@@ -1,0 +1,123 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@theme inline {
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+
+  --color-track: var(--track);
+  --color-track-line: var(--track-line);
+  --color-highlight: var(--highlight);
+  --color-highlight-foreground: var(--highlight-foreground);
+  --color-success: var(--success);
+
+  --color-amber: var(--color-amber);
+  --color-cyan: var(--color-cyan);
+  --color-electric: var(--color-electric);
+  --color-surface: var(--color-surface);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, 'SFMono-Regular', monospace;
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+}
+
+:root {
+  color-scheme: light;
+  --background: #FAF9F6;
+  --foreground: #17171C;
+  --card: #FFFFFF;
+  --card-foreground: #17171C;
+  --popover: #FFFFFF;
+  --popover-foreground: #17171C;
+  --primary: #2D3BFF;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F3F2F0;
+  --secondary-foreground: #17171C;
+  --muted: #F3F2F0;
+  --muted-foreground: #6B6F7A;
+  --accent: #FF5E2D;
+  --accent-foreground: #FFFFFF;
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+  --border: #E8E5E0;
+  --input: #E8E5E0;
+  --ring: #2D3BFF;
+
+  --track: #FAF9F6;
+  --track-line: #E8E5E0;
+  --highlight: #2D3BFF;
+  --highlight-foreground: #FFFFFF;
+  --success: #16A34A;
+
+  --color-amber: #FF5E2D;
+  --color-cyan: #00C4B8;
+  --color-electric: #2D3BFF;
+  --color-surface: #F5F4F1;
+
+  --radius: 0.75rem;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply bg-background scroll-smooth;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+@layer utilities {
+  @keyframes caret-blink {
+    0%, 49% { opacity: 1; }
+    50%, 100% { opacity: 0; }
+  }
+  .animate-caret {
+    animation: caret-blink 1s step-end infinite;
+  }
+
+  @keyframes shimmer {
+    100% { transform: translateX(100%); }
+  }
+
+  .bg-checker {
+    background-image:
+      linear-gradient(45deg, var(--foreground) 25%, transparent 25%),
+      linear-gradient(-45deg, var(--foreground) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, var(--foreground) 75%),
+      linear-gradient(-45deg, transparent 75%, var(--foreground) 75%);
+    background-size: 12px 12px;
+    background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+    opacity: 0.85;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-caret { animation: none; }
+}
