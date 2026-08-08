@@ -1,12 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Loader2, Plus, X } from 'lucide-react'
-import { useAccount, useEnsName, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
+import { Loader2, Plus, X, AlertTriangle } from 'lucide-react'
+import { useAccount, useEnsName, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { parseEther, decodeEventLog } from 'viem'
 import { TYPERACE_PVP_ADDRESS, TYPERACE_PVP_ABI } from '@/lib/web3/abi'
+
+const API_BASE = ''
 
 interface CreateRoomModalProps {
   open: boolean
@@ -20,6 +22,8 @@ export function CreateRoomModal({ open, onClose }: CreateRoomModalProps) {
 
   const [stakeAmount, setStakeAmount] = useState('0.1')
   const [maxPlayers, setMaxPlayers] = useState('2')
+  const [existingRoomId, setExistingRoomId] = useState<number | null>(null)
+  const [checkingExisting, setCheckingExisting] = useState(false)
 
   const { data: hash, isPending, writeContract, error: writeError } = useWriteContract()
   const { isLoading: isConfirming, isSuccess: isConfirmed, data: receipt } =
@@ -28,11 +32,25 @@ export function CreateRoomModal({ open, onClose }: CreateRoomModalProps) {
   const [actualRoomId, setActualRoomId] = useState<number | null>(null)
   const playerName = ensName ?? (address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Anon')
 
-  // Listen for the transaction receipt and extract the RoomCreated event
+  useEffect(() => {
+    if (open && address) {
+      setCheckingExisting(true)
+      setExistingRoomId(null)
+      fetch(`/api/active-room?address=${address}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.activeRoomId !== null) {
+            setExistingRoomId(data.activeRoomId)
+          }
+        })
+        .catch(() => {})
+        .finally(() => setCheckingExisting(false))
+    }
+  }, [open, address])
+
   useEffect(() => {
     if (isConfirmed && receipt) {
-      // Find the RoomCreated event in the logs
-      let foundRoomId = null
+      let foundRoomId: number | null = null
       for (const log of receipt.logs) {
         try {
           const decoded = decodeEventLog({
@@ -44,22 +62,23 @@ export function CreateRoomModal({ open, onClose }: CreateRoomModalProps) {
             foundRoomId = Number((decoded.args as any).roomId)
             break
           }
-        } catch (e) {
-          // Ignore logs that aren't from our contract or don't match ABI
-          // console.error("Decode log error", e) // Uncomment to debug if needed
+        } catch {
+          // not our event
         }
       }
-      
+
       if (foundRoomId !== null) {
         setActualRoomId(foundRoomId)
         const encodedName = encodeURIComponent(playerName)
         const timer = setTimeout(() => {
           onClose()
-          router.push(`/game?roomId=${foundRoomId}&name=${encodedName}&host=true&max=${maxPlayers}&stake=${stakeAmount}`)
+          router.push(
+            `/room/${foundRoomId}?name=${encodedName}&host=true&max=${maxPlayers}&stake=${stakeAmount}`,
+          )
         }, 1200)
         return () => clearTimeout(timer)
       } else {
-        console.error("Could not find RoomCreated event in receipt logs!", receipt.logs)
+        console.error('Could not find RoomCreated event in receipt logs!', receipt.logs)
       }
     }
   }, [isConfirmed, receipt, onClose, router, playerName, maxPlayers, stakeAmount])
@@ -69,10 +88,12 @@ export function CreateRoomModal({ open, onClose }: CreateRoomModalProps) {
       setStakeAmount('0.1')
       setMaxPlayers('2')
       setActualRoomId(null)
+      setExistingRoomId(null)
     }
   }, [open])
 
-  const handleCreate = () => {
+  const handleCreate = useCallback(() => {
+    if (isPending || isConfirming) return
     try {
       const stakeWei = parseEther(stakeAmount)
       const players = parseInt(maxPlayers)
@@ -86,9 +107,10 @@ export function CreateRoomModal({ open, onClose }: CreateRoomModalProps) {
     } catch (err) {
       console.error(err)
     }
-  }
+  }, [stakeAmount, maxPlayers, isPending, isConfirming, writeContract])
 
   const isBusy = isPending || isConfirming || (isConfirmed && actualRoomId === null)
+  const showExistingRoom = existingRoomId !== null && !checkingExisting && !isConfirmed
 
   return (
     <AnimatePresence>
@@ -140,6 +162,31 @@ export function CreateRoomModal({ open, onClose }: CreateRoomModalProps) {
                   Room #{actualRoomId ?? '...'}
                 </p>
                 <p className="text-xs text-muted-foreground/60 mt-1">Redirecting to lobby...</p>
+              </div>
+            ) : showExistingRoom ? (
+              <>
+                <div className="mb-6">
+                  <div className="flex size-10 items-center justify-center rounded-xl bg-amber/[0.06] ring-1 ring-amber/8 mb-3">
+                    <AlertTriangle className="size-5 text-amber-600" />
+                  </div>
+                  <h2 className="font-mono text-xl font-bold tracking-tight">Active Room Found</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    You already have an active room. Finish or leave it before creating a new one.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    onClose()
+                    router.push(`/room/${existingRoomId}`)
+                  }}
+                  className="group relative w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3.5 text-sm font-semibold text-white shadow-[0_2px_12px_rgba(45,59,255,0.2)] transition-all duration-300 hover:shadow-[0_4px_18px_rgba(45,59,255,0.3)] hover:-translate-y-0.5 active:translate-y-0"
+                >
+                  Go to Room #{existingRoomId}
+                </button>
+              </>
+            ) : checkingExisting ? (
+              <div className="py-12 flex items-center justify-center">
+                <Loader2 className="size-6 animate-spin text-muted-foreground" />
               </div>
             ) : (
               <>

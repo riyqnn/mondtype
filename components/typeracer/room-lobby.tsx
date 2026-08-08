@@ -1,47 +1,25 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Check, Copy, Crown, Flag, Link, Users, Loader2 } from 'lucide-react'
+import { Check, Copy, Crown, Link, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
-import { TYPERACE_PVP_ADDRESS, TYPERACE_PVP_ABI } from '@/lib/web3/abi'
 import type { Player } from '@/lib/typeracer/types'
 
 interface RoomLobbyProps {
   roomCode: string
   players: Player[]
   maxPlayers: number
-  onToggleReady: (playerId: string) => void
-  onStart: () => void
+  onToggleReady: () => void
 }
 
-export function RoomLobby({ roomCode, players, maxPlayers, onToggleReady, onStart }: RoomLobbyProps) {
+export function RoomLobby({ roomCode, players, maxPlayers, onToggleReady }: RoomLobbyProps) {
   const [copiedCode, setCopiedCode] = useState(false)
   const [copiedLink, setCopiedLink] = useState(false)
 
   const self = players.find((p) => p.isSelf)
   const host = players.find((p) => p.isHost)
-  const allReady = players.every((p) => p.isReady)
-  const canStart = Boolean(self?.isHost) && players.length >= 2 && allReady
-
-  const { data: hash, isPending, writeContract } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash })
-
-  useEffect(() => {
-    if (isConfirmed) {
-      onStart()
-    }
-  }, [isConfirmed, onStart])
-
-  const handleStartRace = () => {
-    writeContract({
-      address: TYPERACE_PVP_ADDRESS,
-      abi: TYPERACE_PVP_ABI,
-      functionName: 'startRace',
-      args: [BigInt(roomCode)],
-    })
-  }
+  const allReady = players.length >= 2 && players.every((p) => p.isReady)
 
   const copyCode = async () => {
     await navigator.clipboard.writeText(roomCode)
@@ -50,7 +28,7 @@ export function RoomLobby({ roomCode, players, maxPlayers, onToggleReady, onStar
   }
 
   const copyLink = async () => {
-    const link = `${window.location.origin}/game?roomId=${roomCode}&host=false&max=${maxPlayers}`
+    const link = `${window.location.origin}/room/${roomCode}`
     await navigator.clipboard.writeText(link)
     setCopiedLink(true)
     setTimeout(() => setCopiedLink(false), 1800)
@@ -71,8 +49,8 @@ export function RoomLobby({ roomCode, players, maxPlayers, onToggleReady, onStar
       </h2>
       <p className="text-sm text-muted-foreground mb-8">
         {players.length < maxPlayers
-          ? `Share the code below so others can join.`
-          : 'Lobby full. Ready to race.'}
+          ? 'Share the code below so others can join.'
+          : 'Lobby full. Everyone ready up to start.'}
       </p>
 
       <div className="mb-8 space-y-3">
@@ -162,7 +140,6 @@ export function RoomLobby({ roomCode, players, maxPlayers, onToggleReady, onStar
             </div>
           ))}
 
-          {/* Empty slots */}
           {Array.from({ length: maxPlayers - players.length }).map((_, i) => (
             <div key={`empty-${i}`} className="flex items-center gap-3.5 px-5 py-3.5 opacity-40">
               <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border-2 border-dashed border-border text-sm text-muted-foreground">
@@ -174,44 +151,30 @@ export function RoomLobby({ roomCode, players, maxPlayers, onToggleReady, onStar
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row">
+      <div className="flex flex-col gap-3">
         <Button
           variant={self?.isReady ? 'secondary' : 'default'}
           size="lg"
-          className="flex-1 rounded-xl font-semibold text-sm"
-          onClick={() => self && onToggleReady(self.id)}
+          className="w-full rounded-xl font-semibold text-sm"
+          onClick={onToggleReady}
         >
           {self?.isReady ? 'Cancel Ready' : "I'm Ready"}
         </Button>
-
-        <Button
-          size="lg"
-          className="flex-1 rounded-xl font-semibold text-sm"
-          disabled={!canStart || isPending || isConfirming}
-          onClick={handleStartRace}
-        >
-          {isPending || isConfirming ? (
-             <><Loader2 className="size-4 animate-spin" /> Starting...</>
-          ) : (
-             <><Flag className="size-4" /> Start Race</>
-          )}
-        </Button>
       </div>
 
-      {!self?.isHost && host && (
-        <p className="mt-4 text-center text-sm text-muted-foreground">
-          Waiting for{' '}
-          <span className="font-semibold text-foreground">{host.name}</span>{' '}
-          to start the race.
+      {allReady && (
+        <p className="mt-4 text-center text-sm font-medium text-success">
+          All players ready — race starting soon!
         </p>
       )}
-      {self?.isHost && !canStart && (
+      {!allReady && players.length >= 2 && (
         <p className="mt-4 text-center text-sm text-muted-foreground">
-          {players.length < 2
-            ? 'Need at least 2 players to start.'
-            : !allReady
-            ? 'All players must be ready to start.'
-            : ''}
+          Waiting for all players to ready up...
+        </p>
+      )}
+      {players.length < 2 && (
+        <p className="mt-4 text-center text-sm text-muted-foreground">
+          Need at least 2 players to start.
         </p>
       )}
     </motion.div>

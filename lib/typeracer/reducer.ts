@@ -1,31 +1,24 @@
 import type { Player, PlayerStats, RaceResult, RaceState } from './types'
-import { pickRandomPassage } from './passages'
+import { PASSAGES, pickRandomPassage } from './passages'
 
 export const SELF_ID = 'self'
 
-/** Color palette for assigning to players who join. */
 const PLAYER_COLORS = ['#f59e0b', '#7c3aed', '#0891b2', '#dc2626', '#16a34a', '#ec4899']
 
-/**
- * All state transitions funnel through this reducer so race phases stay
- * explicit (idle → lobby → countdown → racing → finished) instead of being
- * spread across ad-hoc booleans.
- */
 export type RaceAction =
   | { type: 'CREATE_ROOM'; name: string; roomCode: string; maxPlayers: number }
   | { type: 'JOIN_ROOM'; name: string; roomCode: string; maxPlayers: number }
+  | { type: 'ROOM_STATE'; players: Player[]; roomCode: string; maxPlayers: number }
   | { type: 'PLAYER_JOIN'; player: { id: string; name: string } }
-  | { type: 'SYNC_PLAYERS'; addresses: readonly string[], hostAddress: string }
   | { type: 'PLAYER_LEAVE'; playerId: string }
   | { type: 'TOGGLE_READY'; playerId: string }
   | { type: 'START_COUNTDOWN' }
   | { type: 'TICK_COUNTDOWN'; value: number }
-  | { type: 'BEGIN_RACE'; startedAt: number }
-  // Local human typing progress.
+  | { type: 'BEGIN_RACE'; startedAt: number; passageIndex: number }
   | { type: 'SELF_PROGRESS'; stats: PlayerStats }
-  // Remote player progress — dispatched from socket/WebRTC events.
   | { type: 'REMOTE_PROGRESS'; playerId: string; stats: PlayerStats }
   | { type: 'PLAYER_FINISH'; playerId: string; finishedAt: number }
+  | { type: 'RACE_FINISHED'; ranking: { address: string; rank: number }[]; txHash: string | null }
   | { type: 'RESET' }
 
 function makeSelf(name: string, isHost: boolean): Player {
@@ -55,7 +48,6 @@ export function createInitialState(): RaceState {
   }
 }
 
-/** Assign 1-based places to whoever has finished, ordered by finish time. */
 function assignPlaces(players: Player[]): Player[] {
   const finishOrder = players
     .filter((p) => p.finishedAt !== null)
@@ -109,6 +101,30 @@ export function raceReducer(state: RaceState, action: RaceAction): RaceState {
       }
     }
 
+    case 'ROOM_STATE': {
+      const { players: serverPlayers, roomCode, maxPlayers } = action
+      const existingPlayers = state.players
+      const merged = serverPlayers.map((sp, i) => {
+        const existing = existingPlayers.find(
+          (ep) => ep.id === sp.id,
+        )
+        return {
+          ...sp,
+          color: sp.color || PLAYER_COLORS[i % PLAYER_COLORS.length],
+          isSelf: sp.isSelf || (existing?.isSelf ?? false),
+          isHost: existing?.isHost ?? sp.isHost,
+          name: existing?.name ?? sp.name,
+        }
+      })
+
+      return {
+        ...state,
+        roomCode,
+        maxPlayers,
+        players: merged,
+      }
+    }
+
     case 'PLAYER_JOIN': {
       if (state.status !== 'lobby') return state
       if (state.players.length >= state.maxPlayers) return state
@@ -131,48 +147,6 @@ export function raceReducer(state: RaceState, action: RaceAction): RaceState {
       }
     }
 
-    case 'SYNC_PLAYERS': {
-      if (state.status !== 'lobby') return state
-      
-      const newPlayers = [...state.players]
-      
-      // Add missing players from addresses
-      action.addresses.forEach(address => {
-        // Assume self is already in the list, we don't want to override self. 
-        // A real app would link wallet address to the self player.
-        // For now, if we don't have this address (and it's not the first self player creating a clash), add it.
-        const id = address.toLowerCase()
-        if (!newPlayers.some(p => p.id === id || (p.isSelf && p.id === SELF_ID))) {
-           const colorIndex = newPlayers.length % PLAYER_COLORS.length
-           newPlayers.push({
-             id: id,
-             name: `${address.slice(0, 6)}...${address.slice(-4)}`,
-             color: PLAYER_COLORS[colorIndex],
-             isHost: address.toLowerCase() === action.hostAddress.toLowerCase(),
-             isSelf: false,
-             isReady: false,
-             stats: { wpm: 0, accuracy: 100, progress: 0 },
-             finishedAt: null,
-             place: null,
-           })
-        }
-      })
-      
-      // Remove players that are no longer in the addresses list (except self)
-      const filteredPlayers = newPlayers.filter(p => p.isSelf || action.addresses.some(a => a.toLowerCase() === p.id))
-      
-      // Update host status
-      const updatedPlayers = filteredPlayers.map(p => ({
-        ...p,
-        isHost: p.isSelf ? p.isHost : (p.id === action.hostAddress.toLowerCase())
-      }))
-      
-      return {
-        ...state,
-        players: updatedPlayers
-      }
-    }
-
     case 'PLAYER_LEAVE': {
       return {
         ...state,
@@ -190,7 +164,6 @@ export function raceReducer(state: RaceState, action: RaceAction): RaceState {
     }
 
     case 'START_COUNTDOWN': {
-      // Reset per-race data, keep the roster + room.
       return {
         ...state,
         status: 'countdown',
@@ -209,13 +182,16 @@ export function raceReducer(state: RaceState, action: RaceAction): RaceState {
     case 'TICK_COUNTDOWN':
       return { ...state, countdownValue: action.value }
 
-    case 'BEGIN_RACE':
+    case 'BEGIN_RACE': {
+      const passage = PASSAGES[action.passageIndex % PASSAGES.length] ?? PASSAGES[0]
       return {
         ...state,
         status: 'racing',
+        passage,
         countdownValue: null,
         startedAt: action.startedAt,
       }
+    }
 
     case 'SELF_PROGRESS':
     case 'REMOTE_PROGRESS': {
@@ -233,8 +209,9 @@ export function raceReducer(state: RaceState, action: RaceAction): RaceState {
 
     case 'PLAYER_FINISH': {
       if (state.status !== 'racing') return state
+      const playerId = action.playerId === SELF_ID ? SELF_ID : action.playerId
       const marked = state.players.map((p) =>
-        p.id === action.playerId && p.finishedAt === null
+        p.id === playerId && p.finishedAt === null
           ? {
               ...p,
               finishedAt: action.finishedAt,
@@ -253,6 +230,23 @@ export function raceReducer(state: RaceState, action: RaceAction): RaceState {
         }
       }
       return { ...state, players: placed }
+    }
+
+    case 'RACE_FINISHED': {
+      const placed = state.players.map((p) => {
+        const serverRank = action.ranking.find(
+          (r) => r.address.toLowerCase() === p.id || p.id === SELF_ID,
+        )
+        const place = serverRank?.rank ?? 999
+        return { ...p, place, finishedAt: p.finishedAt ?? Date.now() }
+      })
+
+      return {
+        ...state,
+        status: 'finished',
+        players: placed,
+        results: buildResults(placed),
+      }
     }
 
     case 'RESET':

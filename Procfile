@@ -1,0 +1,1 @@
+web: npx tsx socket-server.ts

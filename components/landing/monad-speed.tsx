@@ -5,7 +5,7 @@ import { motion, useInView } from 'framer-motion'
 import { Cpu } from 'lucide-react'
 
 const chains = [
-  { name: 'Monad', seconds: 0.6, gradient: 'bg-gradient-to-r from-electric to-primary', delay: 0 },
+  { name: 'Monad', seconds: 0.3, gradient: 'bg-gradient-to-r from-electric to-primary', delay: 0 },
   { name: 'Ethereum', seconds: 12, gradient: 'bg-gradient-to-r from-muted-foreground/30 to-muted-foreground/20', delay: 0.2 },
   { name: 'Solana', seconds: 0.4, gradient: 'bg-gradient-to-r from-purple-400/50 to-purple-400/30', delay: 0.4 },
 ]
@@ -86,7 +86,7 @@ export function MonadSpeed() {
             <Cpu className="size-4 text-primary" />
           </div>
           <p className="text-sm leading-relaxed text-muted-foreground pt-0.5">
-            Monad memproses transaksi paralel dengan finality ~0.6 detik — lebih cepat dari waktu yang kamu butuhkan untuk baca kalimat ini.
+            Monad memproses transaksi paralel dengan finality ~0.3 detik — lebih cepat dari waktu yang kamu butuhkan untuk baca kalimat ini.
           </p>
         </motion.div>
       </div>

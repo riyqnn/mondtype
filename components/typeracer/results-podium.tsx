@@ -1,11 +1,8 @@
 'use client'
 
-import { useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { Medal, RotateCcw, Trophy, Loader2, ExternalLink } from 'lucide-react'
+import { Medal, RotateCcw, Trophy, ExternalLink, Loader2, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
-import { TYPERACE_PVP_ADDRESS, TYPERACE_PVP_ABI } from '@/lib/web3/abi'
 import type { RaceResult } from '@/lib/typeracer/types'
 
 interface ResultsPodiumProps {
@@ -13,6 +10,9 @@ interface ResultsPodiumProps {
   roomCode: string | null
   stakeAmount?: string
   playerCount: number
+  txHash: string | null
+  submitStatus: 'confirmed' | 'failed' | null
+  submitError: string | null
   onRaceAgain: () => void
 }
 
@@ -27,33 +27,17 @@ export function ResultsPodium({
   roomCode,
   stakeAmount,
   playerCount,
+  txHash,
+  submitStatus,
+  submitError,
   onRaceAgain,
 }: ResultsPodiumProps) {
-  const { address } = useAccount()
   const winner = results[0]
   const stake = stakeAmount ? parseFloat(stakeAmount) : 0.1
   const totalPot = stake * playerCount
   const platformFee = totalPot * 0.05
   const netPot = totalPot - platformFee
   const distribution = getPrizeDistribution(playerCount)
-
-  const rankedAddresses = results
-    .filter((r) => r.isSelf && address)
-    .map((r) => address as `0x${string}`)
-
-  const { data: hash, isPending, writeContract } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess: isConfirmed, data: receipt } =
-    useWaitForTransactionReceipt({ hash })
-
-  const handleClaim = useCallback(() => {
-    if (!roomCode || rankedAddresses.length === 0) return
-    writeContract({
-      address: TYPERACE_PVP_ADDRESS,
-      abi: TYPERACE_PVP_ABI,
-      functionName: 'submitResult',
-      args: [BigInt(roomCode), rankedAddresses],
-    })
-  }, [roomCode, rankedAddresses, writeContract])
 
   return (
     <motion.div
@@ -142,23 +126,9 @@ export function ResultsPodium({
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row">
-        {!isConfirmed && roomCode && rankedAddresses.length > 0 && (
-          <Button
-            size="lg"
-            className="flex-1 rounded-xl font-semibold text-sm"
-            onClick={handleClaim}
-            disabled={isPending || isConfirming}
-          >
-            {isPending || isConfirming ? (
-              <><Loader2 className="size-4 animate-spin" /> Claiming...</>
-            ) : (
-              <>Claim Prize</>
-            )}
-          </Button>
-        )}
-        {isConfirmed && receipt && (
+        {submitStatus === 'confirmed' && txHash && (
           <a
-            href={`https://testnet.monadscan.com/tx/${receipt.transactionHash}`}
+            href={`https://testnet.monadscan.com/tx/${txHash}`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-success/10 px-4 py-3 text-sm font-semibold text-success hover:bg-success/15 transition-colors"
@@ -166,6 +136,26 @@ export function ResultsPodium({
             <ExternalLink className="size-4" /> View on MonadScan
           </a>
         )}
+
+        {submitStatus === 'failed' && (
+          <div className="flex-1 rounded-xl border border-destructive/20 bg-destructive/[0.04] px-4 py-3 text-center">
+            <div className="flex items-center justify-center gap-2 text-sm font-semibold text-destructive mb-1">
+              <AlertTriangle className="size-4" />
+              Payout failed
+            </div>
+            {submitError && (
+              <p className="text-xs text-destructive/70 break-words">{submitError}</p>
+            )}
+          </div>
+        )}
+
+        {!submitStatus && (
+          <div className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" />
+            Processing results...
+          </div>
+        )}
+
         <Button
           variant="outline"
           size="lg"

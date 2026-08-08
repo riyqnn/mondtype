@@ -1,35 +1,61 @@
 'use client'
 
 import { useCallback, useEffect, useReducer, useRef } from 'react'
-import { Keyboard } from 'lucide-react'
+import { Keyboard, Loader2 } from 'lucide-react'
+import { useAccount } from 'wagmi'
 import {
   createInitialState,
   raceReducer,
   SELF_ID,
 } from '@/lib/typeracer/reducer'
-import { generateRoomCode } from '@/lib/typeracer/passages'
 import { useRaceEngine } from '@/lib/typeracer/use-race-engine'
+import { useRaceSocket } from '@/lib/hooks/use-race-socket'
 import type { PlayerStats } from '@/lib/typeracer/types'
 import { RoomLobby } from './room-lobby'
 import { CountdownOverlay } from './countdown-overlay'
 import { RaceTrack } from './race-track'
 import { TypingPanel } from './typing-panel'
 import { ResultsPodium } from './results-podium'
-import { useReadContract } from 'wagmi'
-import { TYPERACE_PVP_ADDRESS, TYPERACE_PVP_ABI } from '@/lib/web3/abi'
+import type { Player } from '@/lib/typeracer/types'
+
+const PLAYER_COLORS = ['#f59e0b', '#7c3aed', '#0891b2', '#dc2626', '#16a34a', '#ec4899']
 
 interface RaceAppProps {
-  initialRoomCode?: string | null
-  initialName?: string | null
+  roomId: string
+  initialName?: string
   initialHost?: boolean
   initialMaxPlayers?: number
   stakeAmount?: string
 }
 
-export function RaceApp({ initialRoomCode, initialName, initialHost, initialMaxPlayers, stakeAmount }: RaceAppProps) {
+function mapServerPlayerToUi(
+  addr: string,
+  index: number,
+  isSelf: boolean,
+  isHost: boolean,
+  name: string,
+  ready: boolean,
+  connected: boolean,
+): Player {
+  return {
+    id: isSelf ? SELF_ID : addr.toLowerCase(),
+    name: isSelf ? name : `${addr.slice(0, 6)}...${addr.slice(-4)}`,
+    color: PLAYER_COLORS[index % PLAYER_COLORS.length],
+    isHost,
+    isSelf,
+    isReady: ready,
+    stats: { wpm: 0, accuracy: 100, progress: 0 },
+    finishedAt: null,
+    place: null,
+  }
+}
+
+export function RaceApp({ roomId, initialName, initialHost, initialMaxPlayers, stakeAmount }: RaceAppProps) {
+  const { address } = useAccount()
   const [state, dispatch] = useReducer(raceReducer, undefined, createInitialState)
   const initialized = useRef(false)
   const countdownTimers = useRef<ReturnType<typeof setTimeout>[]>([])
+  const name = initialName ?? (address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Anon')
 
   const clearCountdownTimers = useCallback(() => {
     countdownTimers.current.forEach(clearTimeout)
@@ -38,59 +64,132 @@ export function RaceApp({ initialRoomCode, initialName, initialHost, initialMaxP
 
   useEffect(() => {
     if (initialized.current) return
-    if (initialRoomCode && initialName) {
+    if (roomId && address) {
       initialized.current = true
-      const mp = initialMaxPlayers !== undefined ? initialMaxPlayers : 4
-      const roomCode = initialRoomCode
+      const mp = initialMaxPlayers ?? 4
       if (initialHost) {
-        dispatch({ type: 'CREATE_ROOM', name: initialName, roomCode, maxPlayers: mp })
+        dispatch({ type: 'CREATE_ROOM', name, roomCode: roomId, maxPlayers: mp })
       } else {
-        dispatch({ type: 'JOIN_ROOM', name: initialName, roomCode, maxPlayers: mp })
+        dispatch({ type: 'JOIN_ROOM', name, roomCode: roomId, maxPlayers: mp })
       }
     }
-  }, [initialRoomCode, initialName, initialHost, initialMaxPlayers])
+  }, [roomId, address, initialHost, initialMaxPlayers, name])
 
-  const handleSelfProgress = useCallback((stats: PlayerStats) => {
-    dispatch({ type: 'SELF_PROGRESS', stats })
-  }, [])
-
-  const handleSelfFinish = useCallback(() => {
-    dispatch({ type: 'PLAYER_FINISH', playerId: SELF_ID, finishedAt: Date.now() })
-  }, [])
-
-  const roomIdNum = state.roomCode && !isNaN(Number(state.roomCode)) ? BigInt(state.roomCode) : undefined
-
-  const { data: roomInfo } = useReadContract({
-    address: TYPERACE_PVP_ADDRESS,
-    abi: TYPERACE_PVP_ABI,
-    functionName: 'getRoomInfo',
-    args: roomIdNum !== undefined ? [roomIdNum] : undefined,
-    query: { enabled: roomIdNum !== undefined && state.status === 'lobby', refetchInterval: 2000 },
-  })
-
-  const { data: playersList } = useReadContract({
-    address: TYPERACE_PVP_ADDRESS,
-    abi: TYPERACE_PVP_ABI,
-    functionName: 'getPlayers',
-    args: roomIdNum !== undefined ? [roomIdNum] : undefined,
-    query: { enabled: roomIdNum !== undefined && state.status === 'lobby', refetchInterval: 2000 },
+  const {
+    connected,
+    lobbyState,
+    lastProgress,
+    finishedPlayer,
+    raceData,
+    raceResult,
+    countdown: socketCountdown,
+    disconnectNotice,
+    sendReady,
+    sendProgress,
+    sendFinished,
+  } = useRaceSocket({
+    roomId: roomId ? parseInt(roomId, 10) : null,
+    walletAddress: address,
+    enabled: !!address && !!roomId,
   })
 
   useEffect(() => {
-    if (state.status === 'lobby' && playersList && roomInfo) {
-      dispatch({
-        type: 'SYNC_PLAYERS',
-        addresses: playersList as readonly string[],
-        hostAddress: (roomInfo as any)[0] as string,
-      })
+    if (!lobbyState) return
 
-      // Check if host has started the race on the smart contract (status == 1)
-      const roomStatus = (roomInfo as any)[4]
-      if (roomStatus === 1) {
-        dispatch({ type: 'START_COUNTDOWN' })
-      }
+    const hasSelf = state.players.some((p) => p.isSelf)
+    const players: Player[] = []
+
+    lobbyState.players.forEach((sp, i) => {
+      const isSelfAddr = sp.address.toLowerCase() === address?.toLowerCase()
+      const player = mapServerPlayerToUi(
+        sp.address,
+        i,
+        isSelfAddr && hasSelf,
+        sp.address.toLowerCase() === lobbyState.host.toLowerCase(),
+        isSelfAddr && hasSelf ? name : `${sp.address.slice(0, 6)}...${sp.address.slice(-4)}`,
+        sp.ready,
+        sp.connected,
+      )
+      players.push(player)
+    })
+
+    if (!hasSelf && address) {
+      players.unshift({
+        id: SELF_ID,
+        name,
+        color: PLAYER_COLORS[0],
+        isHost: address.toLowerCase() === lobbyState.host.toLowerCase(),
+        isSelf: true,
+        isReady: false,
+        stats: { wpm: 0, accuracy: 100, progress: 0 },
+        finishedAt: null,
+        place: null,
+      })
     }
-  }, [playersList, roomInfo, state.status])
+
+    dispatch({
+      type: 'ROOM_STATE',
+      players,
+      roomCode: String(lobbyState.roomId),
+      maxPlayers: lobbyState.maxPlayers,
+    })
+  }, [lobbyState, address, name, state.players.length])
+
+  useEffect(() => {
+    if (socketCountdown) {
+      dispatch({ type: 'START_COUNTDOWN' })
+    }
+  }, [socketCountdown])
+
+  useEffect(() => {
+    if (!raceData) return
+    dispatch({
+      type: 'BEGIN_RACE',
+      startedAt: raceData.startTimestamp,
+      passageIndex: parseInt(raceData.text, 10),
+    })
+  }, [raceData?.startTimestamp])
+
+  useEffect(() => {
+    if (!lastProgress) return
+    dispatch({
+      type: 'REMOTE_PROGRESS',
+      playerId: lastProgress.walletAddress.toLowerCase(),
+      stats: {
+        wpm: lastProgress.wpm,
+        accuracy: 100,
+        progress: 0,
+      },
+    })
+  }, [lastProgress?.walletAddress, lastProgress?.charsCorrect])
+
+  useEffect(() => {
+    if (!finishedPlayer) return
+    dispatch({
+      type: 'PLAYER_FINISH',
+      playerId: finishedPlayer.toLowerCase(),
+      finishedAt: Date.now(),
+    })
+  }, [finishedPlayer])
+
+  useEffect(() => {
+    if (!raceResult) return
+    dispatch({
+      type: 'RACE_FINISHED',
+      ranking: raceResult.ranking,
+      txHash: raceResult.txHash,
+    })
+  }, [raceResult])
+
+  const handleSelfProgress = useCallback((stats: PlayerStats) => {
+    dispatch({ type: 'SELF_PROGRESS', stats })
+    sendProgress(Math.round(stats.progress * 100), Math.round(stats.wpm))
+  }, [sendProgress])
+
+  const handleSelfFinish = useCallback(() => {
+    dispatch({ type: 'PLAYER_FINISH', playerId: SELF_ID, finishedAt: Date.now() })
+    sendFinished(Date.now())
+  }, [sendFinished])
 
   const engine = useRaceEngine({
     passage: state.passage.text,
@@ -107,9 +206,6 @@ export function RaceApp({ initialRoomCode, initialName, initialHost, initialMaxP
     countdownTimers.current.push(setTimeout(() => dispatch({ type: 'TICK_COUNTDOWN', value: 2 }), 1000))
     countdownTimers.current.push(setTimeout(() => dispatch({ type: 'TICK_COUNTDOWN', value: 1 }), 2000))
     countdownTimers.current.push(setTimeout(() => dispatch({ type: 'TICK_COUNTDOWN', value: 0 }), 3000))
-    countdownTimers.current.push(
-      setTimeout(() => dispatch({ type: 'BEGIN_RACE', startedAt: Date.now() }), 3800),
-    )
     return clearCountdownTimers
   }, [state.status, clearCountdownTimers])
 
@@ -120,6 +216,17 @@ export function RaceApp({ initialRoomCode, initialName, initialHost, initialMaxP
     engine.reset()
     dispatch({ type: 'RESET' })
   }, [clearCountdownTimers, engine])
+
+  if (!connected && state.status === 'lobby') {
+    return (
+      <div className="flex min-h-dvh items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="size-8 animate-spin text-primary mx-auto mb-3" />
+          <p className="text-muted-foreground text-sm">Connecting to room...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-5xl flex-col px-4 py-8 sm:py-12">
@@ -133,12 +240,18 @@ export function RaceApp({ initialRoomCode, initialName, initialHost, initialMaxP
             <p className="text-xs text-muted-foreground">Race your words</p>
           </div>
         </div>
-        {state.roomCode && (state.status === 'racing' || state.status === 'countdown') && (
+        {state.roomCode && (
           <span className="font-mono text-sm font-bold tracking-[0.25em] text-muted-foreground">
-            {state.roomCode}
+            #{state.roomCode}
           </span>
         )}
       </header>
+
+      {disconnectNotice && (
+        <div className="mb-4 mx-auto max-w-lg rounded-xl border border-amber/20 bg-amber/5 px-4 py-2.5 text-sm text-amber-700 text-center">
+          {disconnectNotice}
+        </div>
+      )}
 
       <div className="flex flex-1 flex-col justify-center">
         {state.status === 'lobby' && state.roomCode && (
@@ -146,8 +259,7 @@ export function RaceApp({ initialRoomCode, initialName, initialHost, initialMaxP
             roomCode={state.roomCode}
             players={state.players}
             maxPlayers={state.maxPlayers}
-            onToggleReady={(id) => dispatch({ type: 'TOGGLE_READY', playerId: id })}
-            onStart={() => dispatch({ type: 'START_COUNTDOWN' })}
+            onToggleReady={() => sendReady(true)}
           />
         )}
 
@@ -171,6 +283,9 @@ export function RaceApp({ initialRoomCode, initialName, initialHost, initialMaxP
             roomCode={state.roomCode}
             stakeAmount={stakeAmount}
             playerCount={state.players.length}
+            txHash={raceResult?.txHash ?? null}
+            submitStatus={raceResult?.status ?? null}
+            submitError={raceResult?.error ?? null}
             onRaceAgain={handleReset}
           />
         )}
