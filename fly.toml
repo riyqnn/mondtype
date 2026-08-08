@@ -1,22 +1,19 @@
-app = "mondtype-ws"
+app = "mondtype"
 primary_region = "sin"
-
-[build]
-  builder = "heroku/buildpacks:20"
 
 [env]
   PORT = "8080"
 
-[[services]]
+[http_service]
   internal_port = 8080
-  protocol = "tcp"
+  force_https = true
   auto_stop_machines = false
   auto_start_machines = true
 
-  [[services.ports]]
+  [[http_service.ports]]
     port = 80
     handlers = ["http"]
 
-  [[services.ports]]
+  [[http_service.ports]]
     port = 443
     handlers = ["tls", "http"]
