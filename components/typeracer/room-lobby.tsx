@@ -20,7 +20,7 @@ export function RoomLobby({ roomCode, players, maxPlayers, onToggleReady, onStar
 
   const self = players.find((p) => p.isSelf)
   const host = players.find((p) => p.isHost)
-  const allReady = players.every((p) => p.isReady || p.isBot)
+  const allReady = players.every((p) => p.isReady)
   const canStart = Boolean(self?.isHost) && players.length >= 2 && allReady
 
   const copyCode = async () => {
@@ -125,18 +125,10 @@ export function RoomLobby({ roomCode, players, maxPlayers, onToggleReady, onStar
                     <Crown className="size-3.5 text-primary shrink-0" />
                   )}
                 </span>
-                {p.isBot && (
-                  <span className="text-[11px] text-muted-foreground/60">Bot player</span>
-                )}
               </div>
 
               <div className="ml-auto shrink-0">
-                {p.isBot ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-success/[0.08] px-3 py-1 text-[11px] font-semibold text-success ring-1 ring-success/20">
-                    <Check className="size-3" />
-                    Ready
-                  </span>
-                ) : p.isReady ? (
+                {p.isReady ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-success/[0.08] px-3 py-1 text-[11px] font-semibold text-success ring-1 ring-success/20">
                     <Check className="size-3" />
                     Ready
@@ -147,6 +139,16 @@ export function RoomLobby({ roomCode, players, maxPlayers, onToggleReady, onStar
                   </span>
                 )}
               </div>
+            </div>
+          ))}
+
+          {/* Empty slots */}
+          {Array.from({ length: maxPlayers - players.length }).map((_, i) => (
+            <div key={`empty-${i}`} className="flex items-center gap-3.5 px-5 py-3.5 opacity-40">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border-2 border-dashed border-border text-sm text-muted-foreground">
+                ?
+              </div>
+              <span className="text-sm text-muted-foreground italic">Waiting for player...</span>
             </div>
           ))}
         </div>

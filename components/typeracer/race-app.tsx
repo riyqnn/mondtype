@@ -9,9 +9,7 @@ import {
 } from '@/lib/typeracer/reducer'
 import { generateRoomCode } from '@/lib/typeracer/passages'
 import { useRaceEngine } from '@/lib/typeracer/use-race-engine'
-import { usePlayerSimulator } from '@/lib/typeracer/use-player-simulator'
 import type { PlayerStats } from '@/lib/typeracer/types'
-import { LandingScreen } from './landing-screen'
 import { RoomLobby } from './room-lobby'
 import { CountdownOverlay } from './countdown-overlay'
 import { RaceTrack } from './race-track'
@@ -66,23 +64,7 @@ export function RaceApp({ initialRoomCode, initialName, initialHost, initialMaxP
     onFinish: handleSelfFinish,
   })
 
-  const handleBotProgress = useCallback((playerId: string, stats: PlayerStats) => {
-    dispatch({ type: 'BOT_PROGRESS', playerId, stats })
-  }, [])
-
-  const handleBotFinish = useCallback((playerId: string) => {
-    dispatch({ type: 'PLAYER_FINISH', playerId, finishedAt: Date.now() })
-  }, [])
-
-  usePlayerSimulator({
-    players: state.players,
-    active: state.status === 'racing',
-    startedAt: state.startedAt,
-    passageLength: state.passage.text.length,
-    onProgress: handleBotProgress,
-    onFinish: handleBotFinish,
-  })
-
+  // Countdown sequence
   useEffect(() => {
     if (state.status !== 'countdown') return
     clearCountdownTimers()
@@ -123,15 +105,6 @@ export function RaceApp({ initialRoomCode, initialName, initialHost, initialMaxP
       </header>
 
       <div className="flex flex-1 flex-col justify-center">
-        {state.status === 'idle' && (
-          <LandingScreen
-            onCreate={(name) =>
-              dispatch({ type: 'CREATE_ROOM', name, roomCode: generateRoomCode(), maxPlayers: 4 })
-            }
-            onJoin={(name, code) => dispatch({ type: 'JOIN_ROOM', name, roomCode: code, maxPlayers: 4 })}
-          />
-        )}
-
         {state.status === 'lobby' && state.roomCode && (
           <RoomLobby
             roomCode={state.roomCode}

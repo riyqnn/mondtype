@@ -1,9 +1,9 @@
 /**
  * Core domain types for the typing race.
  *
- * These are intentionally transport-agnostic: the same shapes are produced by
- * the local bot simulator today and could be produced by a WebSocket server
- * tomorrow. See `reducer.ts` for the exact swap seams.
+ * These are transport-agnostic: the same shapes are produced locally for
+ * single-player and could be produced by a WebSocket server for live
+ * multiplayer. See `reducer.ts` for the exact swap seams.
  */
 
 export type RaceStatus = 'idle' | 'lobby' | 'countdown' | 'racing' | 'finished'
@@ -31,7 +31,6 @@ export interface Player {
   /** Saturated hex color used for the car + labels. */
   color: string
   isHost: boolean
-  isBot: boolean
   /** True for the local human racer. */
   isSelf: boolean
   isReady: boolean

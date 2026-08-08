@@ -1,8 +1,10 @@
 import type { Player, PlayerStats, RaceResult, RaceState } from './types'
-import { createBotPlayers } from './bot'
 import { pickRandomPassage } from './passages'
 
 export const SELF_ID = 'self'
+
+/** Color palette for assigning to players who join. */
+const PLAYER_COLORS = ['#f59e0b', '#7c3aed', '#0891b2', '#dc2626', '#16a34a', '#ec4899']
 
 /**
  * All state transitions funnel through this reducer so race phases stay
@@ -12,14 +14,16 @@ export const SELF_ID = 'self'
 export type RaceAction =
   | { type: 'CREATE_ROOM'; name: string; roomCode: string; maxPlayers: number }
   | { type: 'JOIN_ROOM'; name: string; roomCode: string; maxPlayers: number }
+  | { type: 'PLAYER_JOIN'; player: { id: string; name: string } }
+  | { type: 'PLAYER_LEAVE'; playerId: string }
   | { type: 'TOGGLE_READY'; playerId: string }
   | { type: 'START_COUNTDOWN' }
   | { type: 'TICK_COUNTDOWN'; value: number }
   | { type: 'BEGIN_RACE'; startedAt: number }
   // Local human typing progress.
   | { type: 'SELF_PROGRESS'; stats: PlayerStats }
-  // TODO: replace with live socket.on('player:progress') — same payload shape.
-  | { type: 'BOT_PROGRESS'; playerId: string; stats: PlayerStats }
+  // Remote player progress — dispatched from socket/WebRTC events.
+  | { type: 'REMOTE_PROGRESS'; playerId: string; stats: PlayerStats }
   | { type: 'PLAYER_FINISH'; playerId: string; finishedAt: number }
   | { type: 'RESET' }
 
@@ -27,9 +31,8 @@ function makeSelf(name: string, isHost: boolean): Player {
   return {
     id: SELF_ID,
     name: name.trim() || 'You',
-    color: '#f59e0b',
+    color: PLAYER_COLORS[0],
     isHost,
-    isBot: false,
     isSelf: true,
     isReady: false,
     stats: { wpm: 0, accuracy: 100, progress: 0 },
@@ -83,30 +86,54 @@ export function raceReducer(state: RaceState, action: RaceAction): RaceState {
   switch (action.type) {
     case 'CREATE_ROOM': {
       const self = makeSelf(action.name, true)
-      const botCount = Math.max(1, action.maxPlayers - 1)
       return {
         ...createInitialState(),
         status: 'lobby',
         roomCode: action.roomCode,
         maxPlayers: action.maxPlayers,
         passage: state.passage,
-        players: [self, ...createBotPlayers(botCount)],
+        players: [self],
       }
     }
 
     case 'JOIN_ROOM': {
       const self = makeSelf(action.name, false)
-      const botCount = Math.max(1, action.maxPlayers - 1)
-      const bots = createBotPlayers(botCount)
-      const host = bots[0] ? { ...bots[0], isHost: true } : undefined
-      const rest = bots.slice(1)
       return {
         ...createInitialState(),
         status: 'lobby',
         roomCode: action.roomCode,
         maxPlayers: action.maxPlayers,
         passage: state.passage,
-        players: host ? [host, self, ...rest] : [self, ...rest],
+        players: [self],
+      }
+    }
+
+    case 'PLAYER_JOIN': {
+      if (state.status !== 'lobby') return state
+      if (state.players.length >= state.maxPlayers) return state
+      if (state.players.some((p) => p.id === action.player.id)) return state
+      const colorIndex = state.players.length % PLAYER_COLORS.length
+      const newPlayer: Player = {
+        id: action.player.id,
+        name: action.player.name,
+        color: PLAYER_COLORS[colorIndex],
+        isHost: false,
+        isSelf: false,
+        isReady: false,
+        stats: { wpm: 0, accuracy: 100, progress: 0 },
+        finishedAt: null,
+        place: null,
+      }
+      return {
+        ...state,
+        players: [...state.players, newPlayer],
+      }
+    }
+
+    case 'PLAYER_LEAVE': {
+      return {
+        ...state,
+        players: state.players.filter((p) => p.id !== action.playerId),
       }
     }
 
@@ -148,7 +175,7 @@ export function raceReducer(state: RaceState, action: RaceAction): RaceState {
       }
 
     case 'SELF_PROGRESS':
-    case 'BOT_PROGRESS': {
+    case 'REMOTE_PROGRESS': {
       if (state.status !== 'racing') return state
       const playerId = action.type === 'SELF_PROGRESS' ? SELF_ID : action.playerId
       return {
