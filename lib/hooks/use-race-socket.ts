@@ -53,7 +53,7 @@ interface UseRaceSocketReturn {
   connected: boolean
   lobbyState: LobbyState | null
   lastProgress: ProgressData | null
-  finishedPlayer: string | null
+  finishedPlayer: { address: string; finishTimeMs: number } | null
   raceData: { text: string; startTimestamp: number; maxDurationMs: number } | null
   raceResult: RaceFinishedData | null
   countdown: boolean
@@ -72,7 +72,7 @@ export function useRaceSocket({
   const [connected, setConnected] = useState(false)
   const [lobbyState, setLobbyState] = useState<LobbyState | null>(null)
   const [lastProgress, setLastProgress] = useState<ProgressData | null>(null)
-  const [finishedPlayer, setFinishedPlayer] = useState<string | null>(null)
+  const [finishedPlayer, setFinishedPlayer] = useState<{ address: string; finishTimeMs: number } | null>(null)
   const [raceData, setRaceData] = useState<{
     text: string
     startTimestamp: number
@@ -136,8 +136,8 @@ export function useRaceSocket({
       setLastProgress(data)
     })
 
-    socket.on('player_finished_event', (data: { walletAddress: string }) => {
-      setFinishedPlayer(data.walletAddress)
+    socket.on('player_finished_event', (data: { walletAddress: string; finishTimeMs: number }) => {
+      setFinishedPlayer({ address: data.walletAddress, finishTimeMs: data.finishTimeMs })
     })
 
     socket.on('player_disconnected', (data: { walletAddress: string; message: string }) => {

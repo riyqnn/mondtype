@@ -28,6 +28,8 @@ export interface PlayerStats {
 export interface Player {
   id: string
   name: string
+  /** Wallet address (for matching server rankings). */
+  address: string
   /** Saturated hex color used for the car + labels. */
   color: string
   isHost: boolean

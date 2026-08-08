@@ -43,6 +43,7 @@ function mapServerPlayerToUi(
   return {
     id: isSelf ? SELF_ID : addr.toLowerCase(),
     name: isSelf ? name : isBot ? BOT_NAMES[botNum - 1] ?? `Bot ${botNum}` : `${addr.slice(0, 6)}...${addr.slice(-4)}`,
+    address: addr.toLowerCase(),
     color: PLAYER_COLORS[index % PLAYER_COLORS.length],
     isHost,
     isSelf,
@@ -121,6 +122,7 @@ export function RaceApp({ roomId, initialName, initialHost, initialMaxPlayers, s
       players.unshift({
         id: SELF_ID,
         name,
+        address: address.toLowerCase(),
         color: PLAYER_COLORS[0],
         isHost: address.toLowerCase() === lobbyState.host.toLowerCase(),
         isSelf: true,
@@ -172,8 +174,8 @@ export function RaceApp({ roomId, initialName, initialHost, initialMaxPlayers, s
     if (!finishedPlayer) return
     dispatch({
       type: 'PLAYER_FINISH',
-      playerId: finishedPlayer.toLowerCase(),
-      finishedAt: Date.now(),
+      playerId: finishedPlayer.address.toLowerCase(),
+      finishedAt: finishedPlayer.finishTimeMs,
     })
   }, [finishedPlayer])
 

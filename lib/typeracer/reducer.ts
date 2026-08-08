@@ -21,10 +21,11 @@ export type RaceAction =
   | { type: 'RACE_FINISHED'; ranking: { address: string; rank: number }[]; txHash: string | null }
   | { type: 'RESET' }
 
-function makeSelf(name: string, isHost: boolean): Player {
+function makeSelf(name: string, isHost: boolean, address: string = ''): Player {
   return {
     id: SELF_ID,
     name: name.trim() || 'You',
+    address,
     color: PLAYER_COLORS[0],
     isHost,
     isSelf: true,
@@ -134,6 +135,7 @@ export function raceReducer(state: RaceState, action: RaceAction): RaceState {
       const newPlayer: Player = {
         id: action.player.id,
         name: action.player.name,
+        address: action.player.id,
         color: PLAYER_COLORS[colorIndex],
         isHost: false,
         isSelf: false,
@@ -237,7 +239,8 @@ export function raceReducer(state: RaceState, action: RaceAction): RaceState {
     case 'RACE_FINISHED': {
       const placed = state.players.map((p) => {
         const serverRank = action.ranking.find(
-          (r) => r.address.toLowerCase() === p.id || p.id === SELF_ID,
+          (r) => r.address.toLowerCase() === p.address.toLowerCase() ||
+               r.address.toLowerCase() === p.id.toLowerCase(),
         )
         const place = serverRank?.rank ?? 999
         return { ...p, place, finishedAt: p.finishedAt ?? Date.now() }

@@ -65,10 +65,11 @@ export function setupSocketEvents(io: Server): void {
     })
 
     socket.on('player_finished', (data: { roomId: number; walletAddress: string; finishTimeMs: number }) => {
-      const { roomId, walletAddress, finishTimeMs } = data
-      const allDone = roomManager.playerFinished(roomId, walletAddress, finishTimeMs)
+      const { roomId, walletAddress } = data
+      const serverFinishTime = Date.now()
+      const allDone = roomManager.playerFinished(roomId, walletAddress, serverFinishTime)
 
-      io.to(`room:${roomId}`).emit('player_finished_event', { walletAddress, finishTimeMs })
+      io.to(`room:${roomId}`).emit('player_finished_event', { walletAddress, finishTimeMs: serverFinishTime })
 
       if (allDone) {
         finalizeRace(io, roomId)
