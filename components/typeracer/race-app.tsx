@@ -15,6 +15,8 @@ import { CountdownOverlay } from './countdown-overlay'
 import { RaceTrack } from './race-track'
 import { TypingPanel } from './typing-panel'
 import { ResultsPodium } from './results-podium'
+import { useReadContract } from 'wagmi'
+import { TYPERACE_PVP_ADDRESS, TYPERACE_PVP_ABI } from '@/lib/web3/abi'
 
 interface RaceAppProps {
   initialRoomCode?: string | null
@@ -55,6 +57,40 @@ export function RaceApp({ initialRoomCode, initialName, initialHost, initialMaxP
   const handleSelfFinish = useCallback(() => {
     dispatch({ type: 'PLAYER_FINISH', playerId: SELF_ID, finishedAt: Date.now() })
   }, [])
+
+  const roomIdNum = state.roomCode && !isNaN(Number(state.roomCode)) ? BigInt(state.roomCode) : undefined
+
+  const { data: roomInfo } = useReadContract({
+    address: TYPERACE_PVP_ADDRESS,
+    abi: TYPERACE_PVP_ABI,
+    functionName: 'getRoomInfo',
+    args: roomIdNum !== undefined ? [roomIdNum] : undefined,
+    query: { enabled: roomIdNum !== undefined && state.status === 'lobby', refetchInterval: 2000 },
+  })
+
+  const { data: playersList } = useReadContract({
+    address: TYPERACE_PVP_ADDRESS,
+    abi: TYPERACE_PVP_ABI,
+    functionName: 'getPlayers',
+    args: roomIdNum !== undefined ? [roomIdNum] : undefined,
+    query: { enabled: roomIdNum !== undefined && state.status === 'lobby', refetchInterval: 2000 },
+  })
+
+  useEffect(() => {
+    if (state.status === 'lobby' && playersList && roomInfo) {
+      dispatch({
+        type: 'SYNC_PLAYERS',
+        addresses: playersList as readonly string[],
+        hostAddress: (roomInfo as any)[0] as string,
+      })
+
+      // Check if host has started the race on the smart contract (status == 1)
+      const roomStatus = (roomInfo as any)[4]
+      if (roomStatus === 1) {
+        dispatch({ type: 'START_COUNTDOWN' })
+      }
+    }
+  }, [playersList, roomInfo, state.status])
 
   const engine = useRaceEngine({
     passage: state.passage.text,

@@ -1,9 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Check, Copy, Crown, Flag, Link, Users } from 'lucide-react'
+import { Check, Copy, Crown, Flag, Link, Users, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { TYPERACE_PVP_ADDRESS, TYPERACE_PVP_ABI } from '@/lib/web3/abi'
 import type { Player } from '@/lib/typeracer/types'
 
 interface RoomLobbyProps {
@@ -22,6 +24,24 @@ export function RoomLobby({ roomCode, players, maxPlayers, onToggleReady, onStar
   const host = players.find((p) => p.isHost)
   const allReady = players.every((p) => p.isReady)
   const canStart = Boolean(self?.isHost) && players.length >= 2 && allReady
+
+  const { data: hash, isPending, writeContract } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash })
+
+  useEffect(() => {
+    if (isConfirmed) {
+      onStart()
+    }
+  }, [isConfirmed, onStart])
+
+  const handleStartRace = () => {
+    writeContract({
+      address: TYPERACE_PVP_ADDRESS,
+      abi: TYPERACE_PVP_ABI,
+      functionName: 'startRace',
+      args: [BigInt(roomCode)],
+    })
+  }
 
   const copyCode = async () => {
     await navigator.clipboard.writeText(roomCode)
@@ -167,11 +187,14 @@ export function RoomLobby({ roomCode, players, maxPlayers, onToggleReady, onStar
         <Button
           size="lg"
           className="flex-1 rounded-xl font-semibold text-sm"
-          disabled={!canStart}
-          onClick={onStart}
+          disabled={!canStart || isPending || isConfirming}
+          onClick={handleStartRace}
         >
-          <Flag className="size-4" />
-          Start Race
+          {isPending || isConfirming ? (
+             <><Loader2 className="size-4 animate-spin" /> Starting...</>
+          ) : (
+             <><Flag className="size-4" /> Start Race</>
+          )}
         </Button>
       </div>
 

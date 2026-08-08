@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Loader2, Plus, X } from 'lucide-react'
 import { useAccount, useEnsName, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
-import { parseEther } from 'viem'
+import { parseEther, decodeEventLog } from 'viem'
 import { TYPERACE_PVP_ADDRESS, TYPERACE_PVP_ABI } from '@/lib/web3/abi'
 
 interface CreateRoomModalProps {
@@ -21,35 +21,54 @@ export function CreateRoomModal({ open, onClose }: CreateRoomModalProps) {
   const [stakeAmount, setStakeAmount] = useState('0.1')
   const [maxPlayers, setMaxPlayers] = useState('2')
 
-  const { data: currentCounter } = useReadContract({
-    address: TYPERACE_PVP_ADDRESS,
-    abi: TYPERACE_PVP_ABI,
-    functionName: 'getRoomCounter',
-    query: { enabled: open },
-  })
-
   const { data: hash, isPending, writeContract, error: writeError } = useWriteContract()
   const { isLoading: isConfirming, isSuccess: isConfirmed, data: receipt } =
     useWaitForTransactionReceipt({ hash })
 
+  const [actualRoomId, setActualRoomId] = useState<number | null>(null)
   const playerName = ensName ?? (address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Anon')
-  const nextRoomId = currentCounter !== undefined ? Number(currentCounter) + 1 : null
 
+  // Listen for the transaction receipt and extract the RoomCreated event
   useEffect(() => {
-    if (isConfirmed && receipt && nextRoomId !== null) {
-      const encodedName = encodeURIComponent(playerName)
-      const timer = setTimeout(() => {
-        onClose()
-        router.push(`/game?roomId=${nextRoomId}&name=${encodedName}&host=true&max=${maxPlayers}&stake=${stakeAmount}`)
-      }, 800)
-      return () => clearTimeout(timer)
+    if (isConfirmed && receipt) {
+      // Find the RoomCreated event in the logs
+      let foundRoomId = null
+      for (const log of receipt.logs) {
+        try {
+          const decoded = decodeEventLog({
+            abi: TYPERACE_PVP_ABI,
+            data: log.data,
+            topics: log.topics,
+          })
+          if (decoded.eventName === 'RoomCreated') {
+            foundRoomId = Number((decoded.args as any).roomId)
+            break
+          }
+        } catch (e) {
+          // Ignore logs that aren't from our contract or don't match ABI
+          // console.error("Decode log error", e) // Uncomment to debug if needed
+        }
+      }
+      
+      if (foundRoomId !== null) {
+        setActualRoomId(foundRoomId)
+        const encodedName = encodeURIComponent(playerName)
+        const timer = setTimeout(() => {
+          onClose()
+          router.push(`/game?roomId=${foundRoomId}&name=${encodedName}&host=true&max=${maxPlayers}&stake=${stakeAmount}`)
+        }, 1200)
+        return () => clearTimeout(timer)
+      } else {
+        console.error("Could not find RoomCreated event in receipt logs!", receipt.logs)
+      }
     }
-  }, [isConfirmed, receipt, onClose, router, playerName, maxPlayers, nextRoomId])
+  }, [isConfirmed, receipt, onClose, router, playerName, maxPlayers, stakeAmount])
 
   useEffect(() => {
     if (!open) {
       setStakeAmount('0.1')
       setMaxPlayers('2')
+      setActualRoomId(null)
     }
   }, [open])
 
@@ -69,7 +88,7 @@ export function CreateRoomModal({ open, onClose }: CreateRoomModalProps) {
     }
   }
 
-  const isBusy = isPending || isConfirming || (isConfirmed && nextRoomId === null)
+  const isBusy = isPending || isConfirming || (isConfirmed && actualRoomId === null)
 
   return (
     <AnimatePresence>
@@ -118,7 +137,7 @@ export function CreateRoomModal({ open, onClose }: CreateRoomModalProps) {
                 </div>
                 <h3 className="text-lg font-semibold text-foreground mb-1">Room Created!</h3>
                 <p className="text-sm text-muted-foreground">
-                  Room #{nextRoomId ?? '...'}
+                  Room #{actualRoomId ?? '...'}
                 </p>
                 <p className="text-xs text-muted-foreground/60 mt-1">Redirecting to lobby...</p>
               </div>
@@ -133,11 +152,6 @@ export function CreateRoomModal({ open, onClose }: CreateRoomModalProps) {
                     Set stake and player count. You&apos;ll race as{' '}
                     <span className="font-mono text-xs text-foreground">{playerName}</span>
                   </p>
-                  {nextRoomId && (
-                    <p className="mt-1 font-mono text-xs text-muted-foreground">
-                      Room #{nextRoomId}
-                    </p>
-                  )}
                 </div>
 
                 <div className="space-y-4">

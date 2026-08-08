@@ -15,6 +15,7 @@ export type RaceAction =
   | { type: 'CREATE_ROOM'; name: string; roomCode: string; maxPlayers: number }
   | { type: 'JOIN_ROOM'; name: string; roomCode: string; maxPlayers: number }
   | { type: 'PLAYER_JOIN'; player: { id: string; name: string } }
+  | { type: 'SYNC_PLAYERS'; addresses: readonly string[], hostAddress: string }
   | { type: 'PLAYER_LEAVE'; playerId: string }
   | { type: 'TOGGLE_READY'; playerId: string }
   | { type: 'START_COUNTDOWN' }
@@ -127,6 +128,48 @@ export function raceReducer(state: RaceState, action: RaceAction): RaceState {
       return {
         ...state,
         players: [...state.players, newPlayer],
+      }
+    }
+
+    case 'SYNC_PLAYERS': {
+      if (state.status !== 'lobby') return state
+      
+      const newPlayers = [...state.players]
+      
+      // Add missing players from addresses
+      action.addresses.forEach(address => {
+        // Assume self is already in the list, we don't want to override self. 
+        // A real app would link wallet address to the self player.
+        // For now, if we don't have this address (and it's not the first self player creating a clash), add it.
+        const id = address.toLowerCase()
+        if (!newPlayers.some(p => p.id === id || (p.isSelf && p.id === SELF_ID))) {
+           const colorIndex = newPlayers.length % PLAYER_COLORS.length
+           newPlayers.push({
+             id: id,
+             name: `${address.slice(0, 6)}...${address.slice(-4)}`,
+             color: PLAYER_COLORS[colorIndex],
+             isHost: address.toLowerCase() === action.hostAddress.toLowerCase(),
+             isSelf: false,
+             isReady: false,
+             stats: { wpm: 0, accuracy: 100, progress: 0 },
+             finishedAt: null,
+             place: null,
+           })
+        }
+      })
+      
+      // Remove players that are no longer in the addresses list (except self)
+      const filteredPlayers = newPlayers.filter(p => p.isSelf || action.addresses.some(a => a.toLowerCase() === p.id))
+      
+      // Update host status
+      const updatedPlayers = filteredPlayers.map(p => ({
+        ...p,
+        isHost: p.isSelf ? p.isHost : (p.id === action.hostAddress.toLowerCase())
+      }))
+      
+      return {
+        ...state,
+        players: updatedPlayers
       }
     }
 

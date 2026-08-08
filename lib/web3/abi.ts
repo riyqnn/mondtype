@@ -12,6 +12,17 @@ export const TYPERACE_PVP_ABI = [
     "type": "function"
   },
   {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "roomId", "type": "uint256" },
+      { "indexed": true, "internalType": "address", "name": "host", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "stakeAmount", "type": "uint256" },
+      { "indexed": false, "internalType": "uint8", "name": "maxPlayers", "type": "uint8" }
+    ],
+    "name": "RoomCreated",
+    "type": "event"
+  },
+  {
     "inputs": [{ "internalType": "uint256", "name": "roomId", "type": "uint256" }],
     "name": "joinRoom",
     "outputs": [],
