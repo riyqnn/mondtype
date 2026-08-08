@@ -54,7 +54,43 @@ class RoomManager {
       submitted: false,
     }
     this.rooms.set(roomId, room)
+
+    if (room.players.size >= 2) {
+      room.status = 'LOBBY'
+    }
+
     return room
+  }
+
+  addBots(roomId: number): void {
+    const room = this.rooms.get(roomId)
+    if (!room) return
+
+    const existing = room.players.size
+    const needed = room.maxPlayers - existing
+
+    for (let i = 1; i <= needed; i++) {
+      const botAddr = `bot:${i}`
+      if (room.players.has(botAddr)) continue
+      room.players.set(botAddr, {
+        address: botAddr,
+        ready: true,
+        connected: true,
+        disconnectTimer: null,
+        charsCorrect: 0,
+        wpm: 0,
+        finishedAt: null,
+        rank: null,
+      })
+    }
+
+    if (room.players.size >= 2) {
+      room.status = 'LOBBY'
+    }
+  }
+
+  isBot(address: string): boolean {
+    return address.startsWith('bot:')
   }
 
   addPlayer(roomId: number, address: string): boolean {

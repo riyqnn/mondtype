@@ -37,13 +37,17 @@ function mapServerPlayerToUi(
   ready: boolean,
   connected: boolean,
 ): Player {
+  const isBot = addr.startsWith('bot:')
+  const botNum = isBot ? parseInt(addr.split(':')[1]) : 0
+  const BOT_NAMES = ['Bot Alpha', 'Bot Beta', 'Bot Gamma']
   return {
     id: isSelf ? SELF_ID : addr.toLowerCase(),
-    name: isSelf ? name : `${addr.slice(0, 6)}...${addr.slice(-4)}`,
+    name: isSelf ? name : isBot ? BOT_NAMES[botNum - 1] ?? `Bot ${botNum}` : `${addr.slice(0, 6)}...${addr.slice(-4)}`,
     color: PLAYER_COLORS[index % PLAYER_COLORS.length],
     isHost,
     isSelf,
     isReady: ready,
+    isBot,
     stats: { wpm: 0, accuracy: 100, progress: 0 },
     finishedAt: null,
     place: null,
@@ -121,6 +125,7 @@ export function RaceApp({ roomId, initialName, initialHost, initialMaxPlayers, s
         isHost: address.toLowerCase() === lobbyState.host.toLowerCase(),
         isSelf: true,
         isReady: false,
+        isBot: false,
         stats: { wpm: 0, accuracy: 100, progress: 0 },
         finishedAt: null,
         place: null,

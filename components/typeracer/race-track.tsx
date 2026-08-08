@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Flag, Trophy } from 'lucide-react'
+import { Flag, Trophy, Bot } from 'lucide-react'
 import type { Player } from '@/lib/typeracer/types'
 
 interface RaceTrackProps {
@@ -61,6 +61,9 @@ export function RaceTrack({ players }: RaceTrackProps) {
               <div key={player.id} className="relative flex h-16 items-center border-b border-track-line last:border-0">
                 <div className="absolute left-0 top-1 flex items-center gap-2 text-xs">
                   <span className="max-w-20 truncate font-semibold sm:max-w-28">{player.name}</span>
+                  {player.isBot && (
+                    <Bot className="size-3 text-violet-500 shrink-0" />
+                  )}
                   <span className="w-12 font-mono tabular-nums text-muted-foreground">
                     {Math.round(player.stats.wpm)} wpm
                   </span>

@@ -34,6 +34,7 @@ export interface Player {
   /** True for the local human racer. */
   isSelf: boolean
   isReady: boolean
+  isBot: boolean
   stats: PlayerStats
   /** ms timestamp when this racer crossed the finish line, else null. */
   finishedAt: number | null

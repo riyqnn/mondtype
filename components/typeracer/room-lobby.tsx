@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Check, Copy, Crown, Link, Users } from 'lucide-react'
+import { Check, Copy, Crown, Link, Users, Bot } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { Player } from '@/lib/typeracer/types'
 
@@ -114,6 +114,11 @@ export function RoomLobby({ roomCode, players, maxPlayers, onToggleReady }: Room
               <div className="flex flex-col min-w-0">
                 <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground truncate">
                   {p.name}
+                  {p.isBot && (
+                    <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded-full">
+                      <Bot className="size-2.5" /> Bot
+                    </span>
+                  )}
                   {p.isSelf && (
                     <span className="text-[11px] font-normal text-muted-foreground">
                       (you)

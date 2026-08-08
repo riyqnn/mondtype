@@ -37,6 +37,7 @@ export function setupSocketEvents(io: Server): void {
         roomManager.setPlayerConnected(roomId, walletAddress, true)
       }
 
+      roomManager.addBots(roomId)
       io.to(`room:${roomId}`).emit('lobby_update', roomManager.getLobbyState(roomId))
 
       checkAutoStart(io, roomId)
@@ -121,8 +122,64 @@ function checkAutoStart(io: Server, roomId: number): void {
         maxDurationMs: room.maxDurationMs,
         players: state?.players ?? [],
       })
+
+      startBotSimulation(io, roomId)
     }, 4000)
   }
+}
+
+const BOT_NAMES = ['Zidan', 'rizky', 'Budiono']
+
+function startBotSimulation(io: Server, roomId: number): void {
+  const room = roomManager.getRoom(roomId)
+  if (!room) return
+
+  const passageLength = 130
+
+  let botIndex = 0
+  room.players.forEach((player, addr) => {
+    if (!roomManager.isBot(addr)) return
+
+    const totalChars = passageLength
+    const wpm = 35 + Math.random() * 40
+    const totalTimeMs = ((totalChars / 5) / wpm) * 60000
+    const tickInterval = 300 + Math.random() * 400
+    const startTime = room.startTimestamp ?? Date.now()
+    const botName = BOT_NAMES[botIndex % BOT_NAMES.length]
+    botIndex++
+
+    const timer = setInterval(() => {
+      const currentRoom = roomManager.getRoom(roomId)
+      if (!currentRoom || currentRoom.status !== 'RACING') {
+        clearInterval(timer)
+        return
+      }
+
+      const elapsed = Date.now() - startTime
+      const progress = Math.min(1, elapsed / totalTimeMs)
+      const charsCorrect = Math.floor(progress * totalChars)
+      const currentWpm = elapsed > 0 ? (charsCorrect / 5) / (elapsed / 60000) : 0
+
+      roomManager.updateProgress(roomId, addr, charsCorrect, Math.round(currentWpm))
+
+      io.to(`room:${roomId}`).emit('progress_update', {
+        walletAddress: addr,
+        charsCorrect,
+        wpm: Math.round(currentWpm),
+      })
+
+      if (progress >= 1) {
+        clearInterval(timer)
+        const finishTime = Date.now()
+        const allDone = roomManager.playerFinished(roomId, addr, finishTime)
+        io.to(`room:${roomId}`).emit('player_finished_event', { walletAddress: addr, finishTimeMs: finishTime })
+
+        if (allDone) {
+          finalizeRace(io, roomId)
+        }
+      }
+    }, tickInterval)
+  })
 }
 
 async function finalizeRace(io: Server, roomId: number): Promise<void> {
