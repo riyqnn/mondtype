@@ -8,22 +8,22 @@ const steps = [
   {
     icon: Wallet,
     title: 'Connect Wallet',
-    detail: 'Tautkan wallet kamu ke Monad Testnet. Cuma butuh beberapa detik.',
+    detail: 'Link your wallet to Monad Testnet. Takes just seconds.',
   },
   {
     icon: Users,
     title: 'Stake & Join Room',
-    detail: 'Buat atau join room dengan stake kecil. 2-4 pemain per race.',
+    detail: 'Create or join a room with a small stake. 2-4 players per race.',
   },
   {
     icon: Keyboard,
     title: 'Race Real-time',
-    detail: 'Ngetik secepat mungkin. Progress semua pemain terlihat live.',
+    detail: 'Type as fast as you can. All player progress visible live.',
   },
   {
     icon: Trophy,
-    title: 'Dana Otomatis Cair',
-    detail: 'Pemenang dapat seluruh pot. Settlement sub-detik di Monad.',
+    title: 'Instant Payouts',
+    detail: 'Winner takes the pot. Sub-second settlement on Monad.',
   },
 ]
 
@@ -80,10 +80,10 @@ export function HowItWorks() {
           How It Works
         </span>
         <h2 className="font-mono text-3xl font-bold tracking-tight sm:text-4xl">
-          Empat langkah, langsung race.
+          Four steps, straight to race.
         </h2>
         <p className="mt-3 max-w-md text-muted-foreground">
-          Dari connect wallet sampai dana cair — semua dalam hitungan detik, bukan menit.
+          From wallet connect to payout — everything in seconds, not minutes.
         </p>
       </motion.div>
 

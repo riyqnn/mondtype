@@ -60,11 +60,10 @@ export function MonadSpeed() {
             Why Monad
           </span>
           <h2 className="font-mono text-3xl font-bold tracking-tight sm:text-4xl">
-            Finality di bawah satu detik.
+            Finality under one second.
           </h2>
           <p className="mt-3 text-muted-foreground">
-            Biaya transaksi nyaris nol. Race dan payout kerasa instan —
-            bukan nunggu konfirmasi berlama-lama.
+            Near-zero transaction fees. Race and payout feel instant — no waiting around for confirmations.
           </p>
         </motion.div>
 
@@ -86,7 +85,7 @@ export function MonadSpeed() {
             <Cpu className="size-4 text-primary" />
           </div>
           <p className="text-sm leading-relaxed text-muted-foreground pt-0.5">
-            Monad memproses transaksi paralel dengan finality ~0.3 detik — lebih cepat dari waktu yang kamu butuhkan untuk baca kalimat ini.
+            Monad processes transactions in parallel with ~0.3s finality — faster than it takes to read this sentence.
           </p>
         </motion.div>
       </div>

@@ -30,7 +30,7 @@ export function Footer() {
       </div>
 
       <p className="mt-6 text-center text-[11px] text-muted-foreground/40">
-        Testnet only — MON testnet token tidak bernilai nyata.
+        Testnet only — MON testnet tokens have no real value.
       </p>
     </footer>
   )

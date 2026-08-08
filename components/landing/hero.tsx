@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils'
 const HEADLINE = 'Type fast.'
 const SUBHEADLINE = 'Get paid faster.'
 const SUBTEXT =
-  'Buat room, taruh stake, dan menang balapan ngetik. Pembayaran cair sebelum lu sempat blink.'
+  'Create a room, put up a stake, and win typing races. Payouts settle before you can even blink.'
 
 function TypingText({
   text,
@@ -115,7 +115,7 @@ export function Hero() {
     if (!isConnected && openConnectModal) {
       openConnectModal()
     } else {
-      alert('Create Room — akan terhubung ke smart contract')
+      alert('Create Room — connect to smart contract')
     }
   }
 

@@ -63,7 +63,7 @@ export function Navbar() {
               </Button>
               {!isConnected && (
                 <span className="absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-white border border-border px-3 py-1.5 text-xs text-muted-foreground opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none shadow-lg z-50">
-                  Connect wallet dulu
+                  Connect wallet first
                 </span>
               )}
             </div>
@@ -80,7 +80,7 @@ export function Navbar() {
               </Button>
               {!isConnected && (
                 <span className="absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-white border border-border px-3 py-1.5 text-xs text-muted-foreground opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none shadow-lg z-50">
-                  Connect wallet dulu
+                  Connect wallet first
                 </span>
               )}
             </div>
