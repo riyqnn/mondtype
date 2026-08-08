@@ -1,36 +1,90 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MonadType
+
+A multiplayer typing race dApp on Monad Testnet. Stake MON tokens, race against friends in real-time, and winners get paid out instantly via smart contracts.
+
+## How It Works
+
+1. **Connect Wallet** — Link your wallet to Monad Testnet
+2. **Create Room** — Set stake amount and max players (2-4)
+3. **Share Code** — Invite friends with your room code
+4. **Race** — Type the passage as fast as you can
+5. **Get Paid** — Winner takes the pot with sub-second settlement
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js 16, React 19, Tailwind CSS 4, Framer Motion |
+| Realtime | Socket.io |
+| Backend | Express, TypeScript |
+| Blockchain | Solidity (Monad Testnet) |
+| Wallet | RainbowKit, wagmi, viem |
+
+## Architecture
+
+```
+VerCel                               Fly.io
+mondtype.vercel.app                  mondtype.fly.dev
+│                                    │
+│  Next.js Pages                     │  Express + Socket.io
+│  API routes (proxy) ───fetch───▶  │  /api/check-room
+│  Socket.io-client ─────WS──────▶  │  Room manager
+│                                    │  Oracle wallet
+│                                    │
+│  Wallet (wagmi) ────────TX──────▶ │  Smart contract
+│                                    │  createRoom / joinRoom
+│                                    │  submitResult
+```
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Node.js 24+
+- pnpm 10+
+- A wallet with Monad Testnet MON tokens
+
+### Environment Variables
+
+```env
+NEXT_PUBLIC_WC_PROJECT_ID=your_reown_project_id
+NEXT_PUBLIC_WS_URL=http://localhost:3001
+ORACLE_PRIVATE_KEY=0x_your_oracle_wallet_key
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Development
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+pnpm install
+pnpm dev:all    # Starts Next.js (:3000) + Socket.io (:3001)
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Or run separately:
 
-## Learn More
+```bash
+pnpm dev        # Next.js only (:3000)
+pnpm dev:ws     # Socket.io only (:3001)
+```
 
-To learn more about Next.js, take a look at the following resources:
+### Production
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+pnpm build      # Build Next.js
+pnpm start      # Start production server
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Smart Contract
 
-## Deploy on Vercel
+Deployed on Monad Testnet at `0x634F07d9Ae6968D71bf0c50B2792a91Ac4af8984`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Functions
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Function | Description |
+|---|---|
+| `createRoom(stake, maxPlayers)` | Create a new room with stake amount |
+| `joinRoom(roomId)` | Join a room with matching stake |
+| `submitResult(roomId, rankedWinners)` | Submit race results (oracle only) |
+
+## License
+
+MIT
