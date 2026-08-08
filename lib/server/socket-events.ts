@@ -166,6 +166,7 @@ function startBotSimulation(io: Server, roomId: number): void {
         walletAddress: addr,
         charsCorrect,
         wpm: Math.round(currentWpm),
+        progress,
       })
 
       if (progress >= 1) {

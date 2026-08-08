@@ -163,10 +163,10 @@ export function RaceApp({ roomId, initialName, initialHost, initialMaxPlayers, s
       stats: {
         wpm: lastProgress.wpm,
         accuracy: 100,
-        progress: 0,
+        progress: lastProgress.progress ?? 0,
       },
     })
-  }, [lastProgress?.walletAddress, lastProgress?.charsCorrect])
+  }, [lastProgress?.walletAddress, lastProgress?.charsCorrect, lastProgress?.progress])
 
   useEffect(() => {
     if (!finishedPlayer) return

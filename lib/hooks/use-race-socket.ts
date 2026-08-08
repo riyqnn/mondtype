@@ -33,6 +33,7 @@ interface ProgressData {
   walletAddress: string
   charsCorrect: number
   wpm: number
+  progress: number
 }
 
 interface RankEntry {
